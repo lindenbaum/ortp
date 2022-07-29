@@ -285,13 +285,15 @@ rtp_session_init (RtpSession * session, int mode)
 	wait_point_init(&session->rcv.wp);
 	/*defaults send payload type to 0 (pcmu)*/
 	rtp_session_set_send_payload_type(session,0);
+        /*initialize time jump with send payload type*/
+	rtp_session_set_recv_payload_type(session,0);
+	rtp_session_set_time_jump_limit(session,5000);
 	/*sets supposed recv payload type to undefined */
 	rtp_session_set_recv_payload_type(session,-1);
 
 	rtp_session_enable_jitter_buffer(session,TRUE);
 	jb_parameters_init(&jbp);
 	rtp_session_set_jitter_buffer_params(session,&jbp);
-	rtp_session_set_time_jump_limit(session,5000);
 	rtp_session_enable_rtcp(session,TRUE);
 	rtp_session_set_rtcp_report_interval(session,RTCP_DEFAULT_REPORT_INTERVAL);
 	session->recv_buf_size = UDP_MAX_SIZE;
@@ -1183,6 +1185,8 @@ static void check_for_seq_number_gap(RtpSession *session, rtp_header_t *rtp) {
 	}
 }
 
+static uint32_t rtp_session_ts_to_time_impl (RtpProfile * profile, int pt, uint32_t timestamp);
+
 /**
  *	Try to get a rtp packet presented as a mblk_t structure from the rtp session.
  *	The \a user_ts parameter is relative to the first timestamp of the incoming stream. In other
@@ -1356,7 +1360,8 @@ rtp_session_recvm_with_ts (RtpSession * session, uint32_t user_ts)
 		 * than current time */
 		wait_point_lock(&session->rcv.wp);
 		packet_time =
-			rtp_session_ts_to_time (session,
+			rtp_session_ts_to_time_impl (session->rcv.profile,
+                                         session->rcv.pt,
 					 user_ts -
 					 session->rtp.rcv_query_ts_offset) +
 			session->rtp.rcv_time_offset;
@@ -1504,6 +1509,8 @@ uint32_t rtp_session_get_current_recv_ts(RtpSession *session){
 	return userts;
 }
 
+static uint32_t rtp_session_time_to_ts_impl (RtpProfile *profile, int pt, int millisecs);
+
 /**
  * oRTP has the possibility to inform the application through a callback registered
  * with rtp_session_signal_connect about crazy incoming RTP stream that jumps from
@@ -1517,7 +1524,7 @@ uint32_t rtp_session_get_current_recv_ts(RtpSession *session){
 void rtp_session_set_time_jump_limit(RtpSession *session, int milisecs){
 	uint32_t ts;
 	session->rtp.time_jump=milisecs;
-	ts=rtp_session_time_to_ts(session,milisecs);
+	ts=rtp_session_time_to_ts_impl(session->rcv.profile,session->rcv.pt,milisecs);
 	if (ts==0) session->rtp.ts_jump=1<<31;	/* do not detect ts jump */
 	else session->rtp.ts_jump=ts;
 }
@@ -1649,7 +1656,7 @@ void rtp_session_uninit (RtpSession * session)
 
 	session->signal_tables = o_list_free(session->signal_tables);
 
-	
+
 	if (session->rtp.congdetect){
 		ortp_congestion_detector_destroy(session->rtp.congdetect);
 	}
@@ -2266,39 +2273,45 @@ rtp_session_get_last_recv_time(RtpSession *session, struct timeval *tv)
 }
 
 
-
-uint32_t rtp_session_time_to_ts(RtpSession *session, int millisecs){
+static uint32_t rtp_session_time_to_ts_impl(RtpProfile *profile, int pt, int millisecs){
 	PayloadType *payload;
-	payload =
-		rtp_profile_get_payload (session->snd.profile,
-					 session->snd.pt);
+	payload = rtp_profile_get_payload (profile, pt);
 	if (payload == NULL)
 	{
-		ortp_warning
-			("rtp_session_time_to_ts: use of unsupported payload type %d.", session->snd.pt);
+		ortp_warning("rtp_session_time_to_ts: use of unsupported payload type %d.", pt);
 		return 0;
 	}
 	/* the return value is in milisecond */
-	return (uint32_t) (payload->clock_rate*(double) (millisecs/1000.0f));
+	return (uint32_t) ((double) payload->clock_rate * ((double) millisecs / 1000.0));
 }
 
-/* function used by the scheduler only:*/
-uint32_t rtp_session_ts_to_time (RtpSession * session, uint32_t timestamp)
+uint32_t rtp_session_time_to_ts(RtpSession *session, int millisecs){
+	return rtp_session_time_to_ts_impl (session->snd.profile,
+                                            session->snd.pt,
+                                            millisecs);
+}
+
+static uint32_t rtp_session_ts_to_time_impl (RtpProfile * profile, int pt, uint32_t timestamp)
 {
 	PayloadType *payload;
-	payload =
-		rtp_profile_get_payload (session->snd.profile,
-					 session->snd.pt);
+	payload = rtp_profile_get_payload (profile, pt);
 	if (payload == NULL)
 	{
-		ortp_warning
-			("rtp_session_ts_to_t: use of unsupported payload type %d.", session->snd.pt);
+		ortp_warning("rtp_session_ts_to_t: use of unsupported payload type %d.", pt);
 		return 0;
 	}
 	/* the return value is in milisecond */
 	return (uint32_t) (1000.0 *
 			  ((double) timestamp /
 			   (double) payload->clock_rate));
+}
+
+/* function used by the scheduler only:*/
+uint32_t rtp_session_ts_to_time (RtpSession * session, uint32_t timestamp)
+{
+	return rtp_session_ts_to_time_impl(session->snd.profile,
+                                           session->snd.pt,
+                                           timestamp);
 }
 
 
