@@ -751,10 +751,8 @@ bool_t ortp_loss_rate_estimator_process_report_block(OrtpLossRateEstimator *obj,
 
 		if (obj->loss_rate>100.f){
 			obj->loss_rate = 100.f;
-			ortp_error("ortp_loss_rate_estimator_process %p: Loss rate MUST NOT be greater than 100%%", obj);
 		}else if(obj->loss_rate < 0){
 			obj->loss_rate = 0;
-			ortp_error("ortp_loss_rate_estimator_process %p: Loss rate MUST NOT be negative", obj);
 		}
 		obj->last_ext_seq=extseq;
 		obj->last_cum_loss=cum_loss;
