@@ -311,10 +311,10 @@ rtp_session_init (RtpSession * session, int mode)
 		rtp_session_set_transports(session, rtp_tr, rtcp_tr);
 	}
 	session->tev_send_pt = -1; /*check in rtp profile when needed*/
-	
+
 	ortp_bw_estimator_init(&session->rtp.gs.recv_bw_estimator, 0.95f, 0.01f);
 	ortp_bw_estimator_init(&session->rtcp.gs.recv_bw_estimator, 0.95f, 0.01f);
-	
+
 #if defined(_WIN32) || defined(_WIN32_WCE)
 	session->rtp.is_win_thread_running = FALSE;
 	ortp_mutex_init(&session->rtp.winthread_lock, NULL);
@@ -334,7 +334,7 @@ void rtp_session_enable_congestion_detection(RtpSession *session, bool_t enabled
 		if (!session->rtp.congdetect){
 			session->rtp.congdetect = ortp_congestion_detector_new(session);
 		}else{
-			if (!session->congestion_detector_enabled) ortp_congestion_detector_reset(session->rtp.congdetect); 
+			if (!session->congestion_detector_enabled) ortp_congestion_detector_reset(session->rtp.congdetect);
 		}
 	}
 	session->congestion_detector_enabled = enabled;
@@ -756,8 +756,6 @@ void rtp_session_update_payload_type(RtpSession *session, int paytype){
 		ortp_message ("payload type changed to %i(%s) !",
 				 paytype,pt->mime_type);
 		payload_type_changed(session,pt);
-	}else{
-		ortp_warning("Receiving packet with unknown payload type %i.",paytype);
 	}
 }
 /**
@@ -1167,7 +1165,7 @@ rtp_session_pick_with_cseq (RtpSession * session, const uint16_t sequence_number
 static void check_for_seq_number_gap(RtpSession *session, rtp_header_t *rtp) {
 	uint16_t pid;
 	uint16_t i;
-	
+
 	/*don't check anything before first packet delivered*/
 	if (session->flags & RTP_SESSION_FIRST_PACKET_DELIVERED && RTP_SEQ_IS_STRICTLY_GREATER_THAN(rtp->seq_number, session->rtp.rcv_last_seq + 1)) {
 		uint16_t first_missed_seq = session->rtp.rcv_last_seq + 1;
@@ -1610,14 +1608,14 @@ static void ortp_stream_uninit(OrtpStream *os){
 }
 
 void rtp_session_uninit (RtpSession * session)
-{	
+{
 	RtpTransport *rtp_meta_transport = NULL;
 	RtpTransport *rtcp_meta_transport = NULL;
 
 	/* Stop and destroy network simulator first, as its thread must be stopped before we free anything else in the RtpSession. */
 	if (session->net_sim_ctx)
 		ortp_network_simulator_destroy(session->net_sim_ctx);
-	
+
 	/* If rtp async thread is running stop it and wait fot it to finish */
 #if defined(_WIN32) || defined(_WIN32_WCE)
 	if (session->rtp.is_win_thread_running) {
@@ -1627,13 +1625,13 @@ void rtp_session_uninit (RtpSession * session)
 	ortp_mutex_destroy(&session->rtp.winthread_lock);
 	ortp_mutex_destroy(&session->rtp.winrq_lock);
 #endif
-	
+
 	/* first of all remove the session from the scheduler */
 	if (session->flags & RTP_SESSION_SCHEDULED)
 	{
 		rtp_scheduler_remove_session (session->sched,session);
 	}
-	
+
 	/*flush all queues */
 	flushq(&session->rtp.rq, FLUSHALL);
 	flushq(&session->rtp.tev_rq, FLUSHALL);

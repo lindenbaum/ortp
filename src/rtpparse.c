@@ -341,7 +341,7 @@ void rtp_session_rtp_parse(RtpSession *session, mblk_t *mp, uint32_t local_str_t
 			rtp_session_dispatch_event(session,ev);
 		}
 	}
-	
+
 	update_rtcp_xr_stat_summary(session, mp, local_str_ts);
 
 	if (session->flags & RTP_SESSION_FIRST_PACKET_DELIVERED) {
@@ -362,8 +362,6 @@ void rtp_session_rtp_parse(RtpSession *session, mblk_t *mp, uint32_t local_str_t
 				ortp_warning("rtp_parse: negative timestamp jump detected");
 				rtp_signal_table_emit2(&session->on_timestamp_jump, &rtp->timestamp);
 			}
-			ortp_error("rtp_parse: discarding too old packet (seq=%i, ts=%u, last_delivered was seq=%i, ts=%u)",rtp->seq_number, rtp->timestamp,
-				(int)session->rtp.rcv_last_seq, session->rtp.rcv_last_ts);
 			freemsg(mp);
 			stats->outoftime++;
 			ortp_global_stats.outoftime++;
@@ -394,4 +392,3 @@ void rtp_session_rtp_parse(RtpSession *session, mblk_t *mp, uint32_t local_str_t
 		session->rtcp_xr_stats.rcv_count++;
 	}
 }
-
